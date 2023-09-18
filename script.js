@@ -9,8 +9,8 @@ const searchInput = document.querySelector(".searchUser");
 
 class Github {
   constructor() {
-    this.clientId = "ec69e92c0d376a7a4702";
-    this.clientSecret = "ab1d0fbb0cec2cee5b9a2c2644bc15ca0f93c270";
+    this.clientId = "bc89e650cf48fb018c55";
+    this.clientSecret = "fd4623dc996c4f1a4079f15548cc8c8aca8e1fc0";
   }
 
   async getUser(userName) {
@@ -20,6 +20,14 @@ class Github {
     const user = await response.json();
 
     return user;
+  }
+
+  async getRepos(userName) {
+    const response = await fetch(
+      `${GITHUB_API}/users/${userName}/repos?sort=created&client_id=${this.clientId}&client_secret=${this.clientSecret}`
+    );
+    const repos = await response.json();
+    return repos;
   }
 }
 
@@ -82,24 +90,62 @@ class UI {
       alert.remove();
     }
   }
+
+  showRepos(repos) {
+    let output = "";
+    repos.slice(0, 5).forEach((repo) => {
+      output += `
+       <div class="card card-body mb-2">
+         <div class="row">
+           <div class="col-md-6">
+             <a href="${repo.html_url}" target="_blank">${repo.name}</a>
+           </div>
+           <div class="col-md-6">
+             <span class="badge badge-primary">Stars: ${repo.stargazers_count}</span>
+             <span class="badge badge-secondary">Watchers: ${repo.watchers_count}</span>
+             <span class="badge badge-success">Forks: ${repo.forks_count}</span>
+           </div>
+         </div>
+       </div>
+     `;
+    });
+
+    document.querySelector(".repos").innerHTML = output;
+  }
 }
 
 const github = new Github();
 const ui = new UI();
 
-searchInput.addEventListener("input", async (e) => {
-  const inputValue = e.target.value;
+function debounce(func, delay) {
+  let timeout;
+  return function (...args) {
+    const context = this;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      func.apply(context, args);
+    }, delay);
+  };
+}
 
-  if (inputValue !== "") {
-    const userData = await github.getUser(inputValue);
+searchInput.addEventListener(
+  "input",
+  debounce(async (e) => {
+    const inputValue = e.target.value;
 
-    if (userData.message === "Not Found") {
+    if (inputValue !== "") {
+      const userData = await github.getUser(inputValue);
+
+      if (userData.message === "Not Found") {
+        ui.clearProfile();
+        return ui.showAlert(userData.message, "alert alert-danger");
+      }
+
+      ui.showProfile(userData);
+      const userRepos = await github.getRepos(inputValue);
+      ui.showRepos(userRepos);
+    } else {
       ui.clearProfile();
-      return ui.showAlert(userData.message, "alert alert-danger");
     }
-
-    return ui.showProfile(userData);
-  }
-
-  ui.clearProfile();
-});
+  }, 500)
+);
